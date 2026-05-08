@@ -148,10 +148,11 @@ def test_url_property_uses_grpc_tcp(tmp_path) -> None:
 
 
 @pytest.mark.network
-def test_real_server_starts_and_accepts_connection(tmp_path) -> None:
+def test_real_server_starts_and_accepts_connection(tmp_path, capsys) -> None:
     """End-to-end: download the binary if needed, spin up a server, and check
     that something is actually listening on the bound port."""
     with gizmosql.Server(password="tiger", database_filename=str(tmp_path / "smoke.duckdb")) as srv:
+        print(f"  server URL: {srv.url}  pid: {srv.pid}  binary: {srv.config.binary}")
         # The context manager doesn't return until the port is open, so the
         # connection here should always succeed if start() did.
         with socket.create_connection((srv.host, srv.port), timeout=2.0):
@@ -159,6 +160,7 @@ def test_real_server_starts_and_accepts_connection(tmp_path) -> None:
         assert srv.is_running()
     # After the with-block the subprocess is gone.
     assert not srv.is_running()
+    print("  → server stopped cleanly")
 
 
 @pytest.mark.network
@@ -170,6 +172,7 @@ def test_real_server_runs_init_sql(tmp_path) -> None:
         database_filename=str(tmp_path / "init.duckdb"),
         init_sql_commands="SELECT 1; SELECT 2;",
     ) as srv:
+        print(f"  server up at {srv.url} (pid {srv.pid}) with init SQL applied")
         assert srv.is_running()
 
 
@@ -188,9 +191,12 @@ def test_real_server_query_via_adbc(tmp_path) -> None:
         password="tiger",
         database_filename=str(tmp_path / "adbc.duckdb"),
     ) as srv:
+        print(f"  server URL: {srv.url}  pid: {srv.pid}")
         with srv.connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT GIZMOSQL_VERSION(), GIZMOSQL_EDITION();")
             version, edition = cur.fetchone()
+        print(f"  query result: GIZMOSQL_VERSION()={version!r}  GIZMOSQL_EDITION()={edition!r}")
+        print(f"  package version: {gizmosql.__version__}")
 
         # The server's GIZMOSQL_VERSION() reports whatever the *server binary*
         # was tagged as, which by default is the package's own version.

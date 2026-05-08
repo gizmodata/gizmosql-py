@@ -94,7 +94,10 @@ ignore = [
 # ---- pytest ----
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -q"
+# -ra:    show extra summary info for non-passing tests
+# Don't add -q here — it would override `-v` on the command line and hide
+# per-test output that we explicitly want visible in CI.
+addopts = "-ra"
 markers = [
   "network: tests that hit the public internet (downloads from GitHub)",
 ]
