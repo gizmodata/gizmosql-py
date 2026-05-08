@@ -1,5 +1,10 @@
 name: ci
 
+# Runs on every push / PR — lint + tests across the supported Python matrix.
+# When a tag matching v*  is pushed AND the tag's commit is reachable from
+# main, the publish job builds the sdist + wheel and uploads to PyPI via
+# Trusted Publishing (no API token needed).
+
 on:
   push:
     branches: ['**']
@@ -18,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-14, windows-latest]
-        python-version: ['3.9', '3.11', '3.13']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v4
 
@@ -39,13 +44,116 @@ jobs:
       - name: Ruff (format check)
         run: ruff format --check src tests
 
-      # Unit tier — no network, runs everywhere.
+      # Offline tier: no network, no subprocess. Runs everywhere.
       - name: pytest (offline tier)
         run: pytest -m "not network"
 
-      # Network tier — runs on Linux + macOS only (the network-marked tests
-      # actually start a real GizmoSQL server, which has no Windows PowerShell
-      # quirks worth re-validating in CI we already cover upstream).
+      # Network tier: real download + real server lifecycle + real ADBC query.
+      # POSIX runners only — the gizmosql_server release zip is a *.exe on
+      # Windows and our subprocess + signal handling is exercised in the main
+      # gizmosql repo's CI; replaying it here would just duplicate that.
       - name: pytest (network tier — real server)
         if: runner.os != 'Windows'
         run: pytest -m network -v
+
+  # ---- Publish to PyPI (Trusted Publishing) --------------------------------
+  # Two-step gate so a tag pushed to a feature branch can never publish:
+  #   1. The trigger filter at the top only fires on push events with
+  #      refs/tags/v*  (so PRs and arbitrary branch pushes never reach this).
+  #   2. verify-tag-on-main below confirms the tagged SHA is an ancestor of
+  #      origin/main. This catches the "tagged from a fork or local branch"
+  #      mistake — the tag exists on origin but the commit it points at
+  #      isn't on main.
+  verify-tag-on-main:
+    name: Verify tag is on main
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # We need the full history to ask "is this SHA reachable from main?"
+          fetch-depth: 0
+
+      - name: Confirm tag commit is on main
+        run: |
+          set -euo pipefail
+          TAG_SHA="$(git rev-list -n 1 "$GITHUB_REF")"
+          echo "Tag $GITHUB_REF_NAME points at $TAG_SHA"
+          # Make sure we have origin/main locally for the ancestry check.
+          git fetch --no-tags --depth=2147483647 origin main
+          if git merge-base --is-ancestor "$TAG_SHA" origin/main; then
+            echo "✓ Tag commit is reachable from origin/main — eligible to publish."
+          else
+            echo "::error::Tag commit $TAG_SHA is NOT on main; refusing to publish."
+            echo "Move the tag to a commit on main, or delete it if it was a mistake:"
+            echo "  git tag -d $GITHUB_REF_NAME"
+            echo "  git push origin :refs/tags/$GITHUB_REF_NAME"
+            exit 1
+          fi
+
+  build:
+    name: Build sdist + wheel
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, verify-tag-on-main]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Confirm package version matches the pushed tag
+        # Belt-and-braces: src/gizmosql/_version.py and the pushed tag must
+        # agree, so `pip install gizmosql==X.Y.Z` and the GitHub tag tell the
+        # same story. Catches "tagged but forgot to bump _version.py".
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG_VER="$(python -c 'import importlib.util,sys
+spec=importlib.util.spec_from_file_location("v","src/gizmosql/_version.py")
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m.__version__)')"
+          TAG_VER="${GITHUB_REF_NAME#v}"
+          echo "package version (src/gizmosql/_version.py): $PKG_VER"
+          echo "tag version  (refs/tags/$GITHUB_REF_NAME):  $TAG_VER"
+          if [ "$PKG_VER" != "$TAG_VER" ]; then
+            echo "::error::version mismatch — bump src/gizmosql/_version.py to $TAG_VER and re-tag"
+            exit 1
+          fi
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, verify-tag-on-main]
+    runs-on: ubuntu-latest
+    # The `production` GitHub Environment is configured with the PyPI Trusted
+    # Publishing relationship; OIDC token-exchange happens here.
+    environment:
+      name: production
+      url: https://pypi.org/p/gizmosql
+    permissions:
+      id-token: write   # required for PyPI Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

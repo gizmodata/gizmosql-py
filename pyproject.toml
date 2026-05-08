@@ -7,7 +7,7 @@ name = "gizmosql"
 dynamic = ["version"]
 description = "Python wrapper that runs a GizmoSQL Flight SQL server as a subprocess (download-on-first-use, no compilation)."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [

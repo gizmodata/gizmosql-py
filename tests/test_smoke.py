@@ -163,13 +163,124 @@ def test_real_server_starts_and_accepts_connection(tmp_path) -> None:
 
 @pytest.mark.network
 def test_real_server_runs_init_sql(tmp_path) -> None:
-    """Start with --init-sql-commands and check the server hasn't bailed on it.
-
-    We can't easily run a query without pulling in adbc, so we just confirm
-    startup + clean shutdown with the flag set."""
+    """Start with --init-sql-commands and confirm the server didn't bail on it
+    (it would exit during startup if the SQL was malformed)."""
     with gizmosql.Server(
         password="tiger",
         database_filename=str(tmp_path / "init.duckdb"),
         init_sql_commands="SELECT 1; SELECT 2;",
     ) as srv:
         assert srv.is_running()
+
+
+@pytest.mark.network
+def test_real_server_query_via_adbc(tmp_path) -> None:
+    """End-to-end SQL: spin up the server, connect via the optional ADBC
+    extra, and verify GIZMOSQL_VERSION() returns the package's pinned version.
+
+    This is the most thorough of the network tests — it exercises the full
+    download → spawn → bind → handshake → auth → execute → fetch → shutdown
+    path that real users will hit. Skipped automatically when adbc isn't
+    installed (the test environment ships it via the [test] extra)."""
+    pytest.importorskip("adbc_driver_gizmosql")
+
+    with gizmosql.Server(
+        password="tiger",
+        database_filename=str(tmp_path / "adbc.duckdb"),
+    ) as srv:
+        with srv.connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT GIZMOSQL_VERSION(), GIZMOSQL_EDITION();")
+            version, edition = cur.fetchone()
+
+        # The server's GIZMOSQL_VERSION() reports whatever the *server binary*
+        # was tagged as, which by default is the package's own version.
+        # Strip the leading 'v' for comparison since gizmosql.__version__ is
+        # the bare semver and the SQL function returns "vX.Y.Z".
+        assert version.lstrip("v").startswith(gizmosql.__version__.lstrip("v"))
+        assert edition in ("Core", "Enterprise")
+
+
+@pytest.mark.network
+def test_real_server_with_tpch_init_sql(tmp_path) -> None:
+    """End-to-end fixture-style flow: bake TPC-H scale-factor 0.01 into the
+    server at startup via --init-sql-commands, then run real SELECTs through
+    the ADBC client.
+
+    This is the workflow we recommend in the Quick Start guide and the
+    'pytest fixture' section of the README, so we'd better be sure it works.
+
+    sf=0.01 generates ~10 MB on disk: 8 standard TPC-H tables, ~60k rows in
+    lineitem, ~25 nations, etc. Big enough to exercise joins, small enough
+    to run in CI in well under a second."""
+    pytest.importorskip("adbc_driver_gizmosql")
+
+    with (
+        gizmosql.Server(
+            password="tiger",
+            database_filename=str(tmp_path / "tpch.duckdb"),
+            init_sql_commands="CALL dbgen(sf=0.01);",
+        ) as srv,
+        srv.connect() as conn,
+    ):
+        # 1. The 8 TPC-H tables are present after dbgen.
+        with conn.cursor() as cur:
+            cur.execute("SHOW TABLES;")
+            tables = {row[0] for row in cur.fetchall()}
+        expected = {
+            "customer",
+            "lineitem",
+            "nation",
+            "orders",
+            "part",
+            "partsupp",
+            "region",
+            "supplier",
+        }
+        assert expected <= tables, f"missing TPC-H tables: {expected - tables}"
+
+        # 2. Single-table SELECT — sf=0.01 always loads exactly 25 nations.
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM nation;")
+            (n_count,) = cur.fetchone()
+        assert n_count == 25
+
+        # 3. lineitem row count is the standard sf=0.01 value (within a small
+        #    tolerance — dbgen has known minor variability across releases).
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM lineitem;")
+            (li_count,) = cur.fetchone()
+        assert 50_000 < li_count < 70_000, f"unexpected lineitem row count: {li_count}"
+
+        # 4. Multi-table join — the marquee example from the Quick Start guide.
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT n_name, COUNT(*) AS customer_count
+                FROM nation, customer
+                WHERE n_nationkey = c_nationkey
+                GROUP BY n_name
+                ORDER BY customer_count DESC, n_name
+                LIMIT 5;
+            """)
+            top5 = cur.fetchall()
+        assert len(top5) == 5
+        for name, count in top5:
+            assert isinstance(name, str)
+            assert name
+            assert isinstance(count, int)
+            assert count > 0
+
+
+@pytest.mark.network
+def test_two_servers_get_distinct_ports(tmp_path) -> None:
+    """Auto-port-picking should give parallel servers non-overlapping ports —
+    the property pytest-xdist users rely on for parallel test runs."""
+    db1 = tmp_path / "a.duckdb"
+    db2 = tmp_path / "b.duckdb"
+    with (
+        gizmosql.Server(password="x", database_filename=str(db1)) as a,
+        gizmosql.Server(password="y", database_filename=str(db2)) as b,
+    ):
+        assert a.port != b.port
+        assert a.config.health_port != b.config.health_port
+        assert a.is_running()
+        assert b.is_running()

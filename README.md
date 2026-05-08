@@ -8,7 +8,9 @@ downloaded from GitHub Releases on first use and cached under
 
 [![PyPI version](https://img.shields.io/pypi/v/gizmosql.svg)](https://pypi.org/project/gizmosql/)
 [![Python versions](https://img.shields.io/pypi/pyversions/gizmosql.svg)](https://pypi.org/project/gizmosql/)
+[![Downloads](https://img.shields.io/pypi/dm/gizmosql.svg)](https://pypi.org/project/gizmosql/)
 [![License](https://img.shields.io/pypi/l/gizmosql.svg)](https://github.com/gizmodata/gizmosql-py/blob/main/LICENSE)
+[![CI](https://github.com/gizmodata/gizmosql-py/actions/workflows/ci.yml/badge.svg)](https://github.com/gizmodata/gizmosql-py/actions/workflows/ci.yml)
 
 ## Why?
 
