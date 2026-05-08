@@ -116,10 +116,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PKG_VER="$(python -c 'import importlib.util,sys
-spec=importlib.util.spec_from_file_location("v","src/gizmosql/_version.py")
-m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-print(m.__version__)')"
+          PKG_VER="$(grep -oE '__version__ = "[^"]+"' src/gizmosql/_version.py | cut -d'"' -f2)"
           TAG_VER="${GITHUB_REF_NAME#v}"
           echo "package version (src/gizmosql/_version.py): $PKG_VER"
           echo "tag version  (refs/tags/$GITHUB_REF_NAME):  $TAG_VER"
