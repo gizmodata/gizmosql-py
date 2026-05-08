@@ -11,6 +11,9 @@ downloaded from GitHub Releases on first use and cached under
 [![Downloads](https://img.shields.io/pypi/dm/gizmosql.svg)](https://pypi.org/project/gizmosql/)
 [![License](https://img.shields.io/pypi/l/gizmosql.svg)](https://github.com/gizmodata/gizmosql-py/blob/main/LICENSE)
 [![CI](https://github.com/gizmodata/gizmosql-py/actions/workflows/ci.yml/badge.svg)](https://github.com/gizmodata/gizmosql-py/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-python_library-blue.svg)](https://docs.gizmosql.com/#/python_library)
+
+📖 **Full reference: [docs.gizmosql.com/#/python_library](https://docs.gizmosql.com/#/python_library)** — covers all `Server()` parameters, the pytest fixture pattern, the multi-agent pattern, environment variables, and limitations. This README is a quick tour; the docs page is the authoritative reference.
 
 ## Why?
 
@@ -151,10 +154,11 @@ auto-picked, so parallel `pytest-xdist` workers don't collide.
 
 ## Links
 
+- 📖 **[Python Library reference](https://docs.gizmosql.com/#/python_library)** — full API + patterns
 - 🌐 [Product page](https://gizmodata.com/gizmosql)
-- 📦 [Install picker (Homebrew, Docker, etc.)](https://gizmodata.com/gizmosql/install)
+- 📦 [Install picker (CLI, Homebrew, Docker, Python)](https://gizmodata.com/gizmosql/install)
 - 🚀 [Quick Start guide](https://docs.gizmosql.com/#/quickstart)
-- 📖 [Documentation](https://docs.gizmosql.com)
+- 📚 [GizmoSQL documentation](https://docs.gizmosql.com)
 - 🦆 [LTS Channel guide](https://docs.gizmosql.com/#/lts_channel)
 - 🐛 [Issues / requests](https://github.com/gizmodata/gizmosql-py/issues)
 
