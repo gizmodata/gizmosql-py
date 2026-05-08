@@ -1,0 +1,107 @@
+name: sync-version
+
+# Bumps src/gizmosql/_version.py and pushes a matching v* tag whenever a
+# new GizmoSQL server release ships. The tag push then fires the existing
+# tag-triggered publish job in ci.yml — so the net effect is:
+#
+#     gizmosql release published   →   matching gizmosql-py release on PyPI
+#                                       (no human intervention)
+#
+# Triggered by:
+#   * repository_dispatch (event_type: upstream-release) — fired from the
+#     gizmosql repo's release CI when a v* tag is pushed there.
+#   * workflow_dispatch                                  — manual button
+#     for the rare case of a Python-only patch (.postN) or backfilling.
+#
+# Required secret: RELEASE_BOT_TOKEN — a fine-grained PAT scoped to this
+# repo with Contents:write + Metadata:read. We can't use GITHUB_TOKEN here
+# because pushes made with GITHUB_TOKEN don't trigger downstream workflows
+# (by design, to prevent infinite loops), and we need the tag push to fire
+# the publish job in ci.yml.
+
+on:
+  repository_dispatch:
+    types: [upstream-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'GizmoSQL version to sync (e.g. v1.25.2 or 1.25.2)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bump-and-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          # PAT instead of GITHUB_TOKEN so the push triggers ci.yml's
+          # tag-based publish job. See note at top of file.
+          token: ${{ secrets.RELEASE_BOT_TOKEN }}
+
+      - name: Resolve version
+        id: ver
+        run: |
+          set -euo pipefail
+          INPUT="${{ github.event.client_payload.version || github.event.inputs.version }}"
+          if [ -z "$INPUT" ]; then
+            echo "::error::no version provided (client_payload.version or inputs.version is empty)"
+            exit 1
+          fi
+          # Strip any leading 'v' for the package version; restore it for the tag.
+          PKG_VER="${INPUT#v}"
+          TAG_VER="v${PKG_VER}"
+          # Validate it looks like PEP 440-ish.
+          if ! echo "$PKG_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([.+a-zA-Z0-9-]*)?$'; then
+            echo "::error::not a valid version: '$INPUT'"
+            exit 1
+          fi
+          echo "package=$PKG_VER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG_VER"     >> "$GITHUB_OUTPUT"
+          echo "Resolved: package=$PKG_VER, tag=$TAG_VER"
+
+      - name: Skip if tag already exists
+        id: existing
+        run: |
+          set -euo pipefail
+          if git ls-remote --tags origin "refs/tags/${{ steps.ver.outputs.tag }}" | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.ver.outputs.tag }} already exists on origin — nothing to push."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump _version.py
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          set -euo pipefail
+          PKG_VER="${{ steps.ver.outputs.package }}"
+          # GNU sed (Ubuntu runner) — single line, no multi-line escape headaches.
+          sed -i 's/^__version__ = ".*"$/__version__ = "'"$PKG_VER"'"/' src/gizmosql/_version.py
+          echo "--- src/gizmosql/_version.py ---"
+          cat src/gizmosql/_version.py
+
+      - name: Commit + tag + push
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add src/gizmosql/_version.py
+          if git diff --cached --quiet; then
+            # _version.py was already at the right version — likely because a
+            # human already bumped it and just wanted CI to do the tag/publish.
+            echo "_version.py is already at ${{ steps.ver.outputs.package }}; just tagging."
+          else
+            git commit -m "Sync to GizmoSQL ${{ steps.ver.outputs.tag }} (auto)"
+          fi
+
+          git tag "${{ steps.ver.outputs.tag }}"
+          git push origin main "${{ steps.ver.outputs.tag }}"
+          echo "✓ Pushed ${{ steps.ver.outputs.tag }} — publish workflow takes it from here."
