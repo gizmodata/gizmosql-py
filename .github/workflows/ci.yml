@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python-version: ['3.9', '3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + dev tools
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[test]' ruff
+
+      - name: Ruff (lint)
+        run: ruff check src tests
+
+      - name: Ruff (format check)
+        run: ruff format --check src tests
+
+      # Unit tier — no network, runs everywhere.
+      - name: pytest (offline tier)
+        run: pytest -m "not network"
+
+      # Network tier — runs on Linux + macOS only (the network-marked tests
+      # actually start a real GizmoSQL server, which has no Windows PowerShell
+      # quirks worth re-validating in CI we already cover upstream).
+      - name: pytest (network tier — real server)
+        if: runner.os != 'Windows'
+        run: pytest -m network -v

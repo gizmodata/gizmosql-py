@@ -1,0 +1,25 @@
+# Python build / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.tox/
+.nox/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+.env
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local install caches (we never want to commit downloaded binaries)
+.cache/
