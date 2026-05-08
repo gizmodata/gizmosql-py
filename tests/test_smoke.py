@@ -148,7 +148,7 @@ def test_url_property_uses_grpc_tcp(tmp_path) -> None:
 
 
 @pytest.mark.network
-def test_real_server_starts_and_accepts_connection(tmp_path, capsys) -> None:
+def test_real_server_starts_and_accepts_connection(tmp_path) -> None:
     """End-to-end: download the binary if needed, spin up a server, and check
     that something is actually listening on the bound port."""
     with gizmosql.Server(password="tiger", database_filename=str(tmp_path / "smoke.duckdb")) as srv:

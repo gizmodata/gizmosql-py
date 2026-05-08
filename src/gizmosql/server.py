@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import io
 import os
 import secrets
 import signal
@@ -182,8 +183,12 @@ class Server:
         self._extra_args = list(extra_args)
         self._extra_env = dict(extra_env) if extra_env else {}
         self._startup_timeout = startup_timeout
-        self._stdout = stdout if stdout is not None else sys.stderr
-        self._stderr = stderr if stderr is not None else sys.stderr
+        # Default to the parent's stderr (so banner output shows up in
+        # notebooks / pytest with -s), but Popen requires a real OS-level
+        # fileno; fall back to DEVNULL if the caller / testing harness has
+        # replaced sys.stderr with a captured stream that doesn't have one.
+        self._stdout = _resolve_subprocess_stream(stdout if stdout is not None else sys.stderr)
+        self._stderr = _resolve_subprocess_stream(stderr if stderr is not None else sys.stderr)
         self._proc: subprocess.Popen[bytes] | None = None
 
     # ---- public API --------------------------------------------------------
@@ -370,6 +375,29 @@ class Server:
 
 
 # ---- helpers ---------------------------------------------------------------
+
+
+def _resolve_subprocess_stream(stream: Any) -> Any:
+    """``subprocess.Popen`` needs an int fd or a real file-like with ``fileno()``.
+
+    pytest's default capture and Jupyter's IPython display both replace
+    ``sys.stdout`` / ``sys.stderr`` with stream objects that don't expose a
+    real fileno; passing those to ``Popen`` raises ``io.UnsupportedOperation:
+    fileno``. Detect that case and fall back to ``DEVNULL`` rather than
+    crashing — the user can still capture the server's output by passing an
+    explicit ``open(...)``-backed file or by running ``pytest -s``.
+    """
+    # ints (DEVNULL=-3, PIPE=-1, STDOUT=-2) and None pass through unchanged.
+    if stream is None or isinstance(stream, int):
+        return stream
+    fileno_fn = getattr(stream, "fileno", None)
+    if fileno_fn is None:
+        return subprocess.DEVNULL
+    try:
+        fileno_fn()
+    except (OSError, ValueError, io.UnsupportedOperation):
+        return subprocess.DEVNULL
+    return stream
 
 
 def _free_port(*, exclude: int | None = None, attempts: int = 8) -> int:
