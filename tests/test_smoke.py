@@ -64,6 +64,18 @@ def test_binary_names_carry_lts_suffix_and_exe_on_windows() -> None:
     )
 
 
+def test_server_release_tag_strips_python_only_suffixes() -> None:
+    # Plain upstream versions pass through (with a normalized leading 'v').
+    assert _install.server_release_tag("1.32.0") == "v1.32.0"
+    assert _install.server_release_tag("v1.32.0") == "v1.32.0"
+    # Python-only .postN / .devN / +local releases map back to the upstream
+    # X.Y.Z server tag that actually has published binaries.
+    assert _install.server_release_tag("1.32.0.post1") == "v1.32.0"
+    assert _install.server_release_tag("v1.32.0.post2") == "v1.32.0"
+    assert _install.server_release_tag("1.32.0.dev3") == "v1.32.0"
+    assert _install.server_release_tag("1.32.0+local") == "v1.32.0"
+
+
 def test_cache_dir_for_includes_version_and_channel(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("GIZMOSQL_CACHE_DIR", str(tmp_path))
     p = _install.cache_dir_for("v1.25.1", "lts")
@@ -199,10 +211,11 @@ def test_real_server_query_via_adbc(tmp_path) -> None:
         print(f"  package version: {gizmosql.__version__}")
 
         # The server's GIZMOSQL_VERSION() reports whatever the *server binary*
-        # was tagged as, which by default is the package's own version.
-        # Strip the leading 'v' for comparison since gizmosql.__version__ is
-        # the bare semver and the SQL function returns "vX.Y.Z".
-        assert version.lstrip("v").startswith(gizmosql.__version__.lstrip("v"))
+        # was tagged as — the upstream release tag, which for a Python-only
+        # ``.postN`` package is the plain X.Y.Z (see server_release_tag). Compare
+        # against that mapped base, not the raw package version.
+        base = _install.server_release_tag(gizmosql.__version__).lstrip("v")
+        assert version.lstrip("v").startswith(base)
         assert edition in ("Core", "Enterprise")
 
 

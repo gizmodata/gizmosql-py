@@ -108,6 +108,27 @@ def _binary_names(os_name: str, channel: str) -> tuple[str, str]:
     return (f"gizmosql_server{suffix}{ext}", f"gizmosql_client{suffix}{ext}")
 
 
+def server_release_tag(version: str) -> str:
+    """Map a package version to the upstream GizmoSQL release tag to download.
+
+    Python-only releases carry a PEP 440 ``.postN`` suffix (and may grow a
+    ``.devN`` or ``+local`` segment); the server binary they ship is the
+    plain upstream ``X.Y.Z`` build — that's what's actually published as a
+    GizmoSQL release. Strip everything from the first such suffix onward so
+    the download URL and cache dir point at a tag that really exists.
+
+        1.32.0        -> v1.32.0
+        1.32.0.post1  -> v1.32.0
+        v1.32.0.dev3  -> v1.32.0
+    """
+    v = version[1:] if version.startswith("v") else version
+    for sep in (".post", ".dev", "+"):
+        idx = v.find(sep)
+        if idx != -1:
+            v = v[:idx]
+    return "v" + v
+
+
 def cache_dir_for(version: str, channel: str) -> Path:
     """The directory the binaries for ``(version, channel)`` live in."""
     if not version.startswith("v"):

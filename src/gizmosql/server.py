@@ -34,7 +34,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import IO, Any, Literal
 
-from gizmosql._install import InstallError, ensure_binary
+from gizmosql._install import InstallError, ensure_binary, server_release_tag
 from gizmosql._version import __version__
 
 Channel = Literal["stable", "lts"]
@@ -137,10 +137,11 @@ class Server:
         if channel not in ("stable", "lts"):
             raise ValueError(f"channel must be 'stable' or 'lts' (got {channel!r})")
 
-        # Resolve version: explicit > env override > package version.
+        # Resolve version: explicit > env override > package version, then map
+        # to the upstream server release tag (a Python-only ``.postN`` release
+        # ships the plain ``X.Y.Z`` server binary — see server_release_tag).
         resolved_version = version or os.environ.get("GIZMOSQL_VERSION") or __version__
-        if not resolved_version.startswith("v"):
-            resolved_version = "v" + resolved_version
+        resolved_version = server_release_tag(resolved_version)
 
         # Resolve binary: explicit path > download-on-first-use cache.
         if binary is not None:
