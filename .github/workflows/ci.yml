@@ -44,7 +44,15 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install -e '.[test]' ruff
+          if [ "${{ matrix.os }}" = "windows-11-arm" ]; then
+            # adbc-driver-flightsql (pulled in by the [test] extra) ships no
+            # win_arm64 wheel, so the extra would try to build it from sdist
+            # and fail. The offline tier we run here doesn't touch ADBC — it
+            # just needs pytest — so install that directly and skip the extra.
+            pip install -e . pytest ruff
+          else
+            pip install -e '.[test]' ruff
+          fi
 
       - name: Ruff (lint)
         run: ruff check src tests
