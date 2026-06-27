@@ -24,10 +24,18 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-14, windows-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        include:
+          # Windows arm64 — GitHub's native arm runner. setup-python only
+          # publishes arm64 CPython builds for 3.11+, so we pin one recent
+          # version rather than fanning out the whole matrix. This exercises
+          # the offline tier (incl. _detect_os_arch on windows/arm64); the
+          # network tier stays POSIX-only like the amd64 Windows job.
+          - os: windows-11-arm
+            python-version: '3.13'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -70,7 +78,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # We need the full history to ask "is this SHA reachable from main?"
           fetch-depth: 0
@@ -98,9 +106,9 @@ jobs:
     needs: [test, verify-tag-on-main]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -129,7 +137,7 @@ jobs:
         run: python -m build
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -147,7 +155,7 @@ jobs:
     permissions:
       id-token: write   # required for PyPI Trusted Publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/

@@ -86,6 +86,7 @@ def _detect_os_arch() -> tuple[str, str]:
         ("linux", "amd64"),
         ("linux", "arm64"),
         ("windows", "amd64"),
+        ("windows", "arm64"),
     }
     if (os_name, arch) not in supported:
         raise InstallError(

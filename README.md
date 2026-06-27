@@ -150,7 +150,7 @@ auto-picked, so parallel `pytest-xdist` workers don't collide.
   loopback Flight SQL endpoint. This is the right architecture for the
   intended use cases — see *Why?* above.
 - Pre-built binaries exist for: macOS arm64, Linux amd64, Linux arm64,
-  Windows amd64. Other platforms aren't supported.
+  Windows amd64, Windows arm64. Other platforms aren't supported.
 
 ## Links
 
