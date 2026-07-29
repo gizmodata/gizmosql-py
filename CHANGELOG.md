@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.35.1.post1] - 2026-07-29
+
 ### Changed
 
 - Bumped the `adbc-driver-gizmosql` floor from `>=1.0` to `>=2.0.0` in the
