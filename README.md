@@ -73,6 +73,13 @@ with gizmosql.Server(password="tiger") as srv:
         print(cur.fetchall())
 ```
 
+ADBC connectivity is provided by
+[`adbc-driver-gizmosql`](https://pypi.org/project/adbc-driver-gizmosql/) 2.0,
+powered by the new native Go
+[GizmoSQL ADBC driver](https://github.com/gizmodata/gizmosql-adbc). Same API
+as before, with DDL/DML immediate execution, `RETURNING` support,
+`gizmosql://` URIs, and OAuth/SSO provided by the shared Go driver library.
+
 ## Common configurations
 
 ```python

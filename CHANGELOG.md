@@ -11,8 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bumped the `adbc-driver-gizmosql` floor from `>=1.0` to `>=2.0.0` in the
-  `[adbc]` and `[test]` extras — the 2.0 driver is a Go-backed rewrite that is
-  API byte-compatible with 1.x, so behavior is unchanged.
+  `[adbc]` and `[test]` extras — the 2.0 driver is a Go-backed rewrite
+  (powered by the native Go
+  [GizmoSQL ADBC driver](https://github.com/gizmodata/gizmosql-adbc)) that is
+  API byte-compatible with 1.x, so behavior is unchanged. It brings DDL/DML
+  immediate execution, `RETURNING` support, `gizmosql://` URIs, and OAuth/SSO
+  via the shared Go driver library.
 - Raised dependency floors to current stable releases: `pyarrow>=25`
   (was `>=15`) and `pytest>=9` (was `>=7`) in the `[adbc]`/`[test]` extras.
 - CI: bumped `actions/setup-python` from v6 to v7 (checkout v7,
