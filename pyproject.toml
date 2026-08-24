@@ -45,12 +45,12 @@ dependencies = []
 # `pip install gizmosql[adbc]` brings in the ADBC Flight SQL driver so
 # `Server.connect()` can hand back a live connection.
 adbc = [
-  "adbc-driver-gizmosql>=2.0.0",
+  "adbc-driver-gizmosql>=2.0.8",
   "pyarrow>=25",
 ]
 test = [
   "pytest>=9",
-  "adbc-driver-gizmosql>=2.0.0",
+  "adbc-driver-gizmosql>=2.0.8",
   "pyarrow>=25",
 ]
 
