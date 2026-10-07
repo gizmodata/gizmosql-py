@@ -49,6 +49,14 @@ def test_artifact_naming_matches_release_convention() -> None:
     assert (
         _install._artifact_name("windows", "amd64", "lts") == "gizmosql_cli_windows_amd64_lts.zip"
     )
+    assert (
+        _install._artifact_name(os_name="linux", arch="arm64", channel="edge")
+        == "gizmosql_cli_linux_arm64_edge.zip"
+    )
+    assert (
+        _install._artifact_name(os_name="windows", arch="arm64", channel="edge")
+        == "gizmosql_cli_windows_arm64_edge.zip"
+    )
 
 
 def test_binary_names_carry_lts_suffix_and_exe_on_windows() -> None:
@@ -61,6 +69,14 @@ def test_binary_names_carry_lts_suffix_and_exe_on_windows() -> None:
     assert _install._binary_names("windows", "lts") == (
         "gizmosql_server_lts.exe",
         "gizmosql_client_lts.exe",
+    )
+    assert _install._binary_names(os_name="macos", channel="edge") == (
+        "gizmosql_server_edge",
+        "gizmosql_client_edge",
+    )
+    assert _install._binary_names(os_name="windows", channel="edge") == (
+        "gizmosql_server_edge.exe",
+        "gizmosql_client_edge.exe",
     )
 
 
@@ -94,8 +110,17 @@ def test_free_port_returns_distinct() -> None:
 
 
 def test_server_rejects_bad_channel() -> None:
-    with pytest.raises(ValueError, match="channel must be"):
+    with pytest.raises(ValueError, match="channel must be 'stable', 'lts' or 'edge'"):
         gizmosql.Server(channel="experimental")  # type: ignore[arg-type]
+
+
+def test_server_accepts_edge_channel(tmp_path) -> None:
+    """channel="edge" passes validation (the binary override skips the download)."""
+    fake = tmp_path / "fake_server"
+    fake.write_text("#!/bin/sh\necho fake\n")
+    fake.chmod(0o755)
+    srv = gizmosql.Server(binary=fake, channel="edge")
+    assert srv.config.channel == "edge"
 
 
 def test_server_rejects_missing_binary_override(tmp_path) -> None:
@@ -287,6 +312,27 @@ def test_real_server_with_tpch_init_sql(tmp_path) -> None:
             assert name
             assert isinstance(count, int)
             assert count > 0
+
+
+@pytest.mark.network
+@pytest.mark.parametrize(argnames="channel", argvalues=["lts", "edge"])
+def test_real_server_channel_query_via_adbc(tmp_path, channel) -> None:
+    """The LTS and (experimental) edge channels download their own
+    gizmosql_server_<channel> build, which reports a -LTS / -EDGE version."""
+    pytest.importorskip("adbc_driver_gizmosql")
+
+    with gizmosql.Server(
+        password="tiger",
+        channel=channel,
+        database_filename=str(tmp_path / f"{channel}.duckdb"),
+    ) as srv:
+        assert srv.config.binary.name.startswith(f"gizmosql_server_{channel}")
+        with srv.connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT GIZMOSQL_VERSION();")
+            (version,) = cur.fetchone()
+        print(f"  {channel}: GIZMOSQL_VERSION()={version!r}  binary: {srv.config.binary}")
+        base = _install.server_release_tag(version=gizmosql.__version__)
+        assert version == f"{base}-{channel.upper()}"
 
 
 @pytest.mark.network

@@ -34,10 +34,10 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import IO, Any, Literal
 
-from gizmosql._install import InstallError, ensure_binary, server_release_tag
+from gizmosql._install import CHANNELS, InstallError, ensure_binary, server_release_tag
 from gizmosql._version import __version__
 
-Channel = Literal["stable", "lts"]
+Channel = Literal["stable", "lts", "edge"]
 
 
 class ServerError(RuntimeError):
@@ -89,8 +89,12 @@ class Server:
         TCP ports to bind. ``0`` (default) picks a free port automatically —
         good for parallel test workers.
     channel:
-        ``"stable"`` (default) or ``"lts"``. The wrapper downloads the matching
-        artifact (``gizmosql_server`` vs ``gizmosql_server_lts``).
+        ``"stable"`` (default), ``"lts"`` or ``"edge"``. The wrapper downloads
+        the matching artifact (``gizmosql_server``, ``gizmosql_server_lts`` or
+        ``gizmosql_server_edge``). ``"edge"`` (GizmoSQL v1.41.0+) is
+        EXPERIMENTAL and not for production workloads: it runs on a DuckDB
+        pre-release (today DuckDB 2.0), and database files it creates can't be
+        opened by the stable or LTS channels.
     version:
         GizmoSQL release tag, e.g. ``"v1.25.1"``. Defaults to the version this
         package was published as (so ``pip install gizmosql==1.25.1`` always
@@ -134,8 +138,8 @@ class Server:
         stderr: IO[bytes] | int | None = None,
         binary: str | os.PathLike[str] | None = None,
     ) -> None:
-        if channel not in ("stable", "lts"):
-            raise ValueError(f"channel must be 'stable' or 'lts' (got {channel!r})")
+        if channel not in CHANNELS:
+            raise ValueError(f"channel must be 'stable', 'lts' or 'edge' (got {channel!r})")
 
         # Resolve version: explicit > env override > package version, then map
         # to the upstream server release tag (a Python-only ``.postN`` release
