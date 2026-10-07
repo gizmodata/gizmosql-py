@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.41.0.post2] - 2026-10-07
+
+### Added
+- `Server.uri` / `ServerConfig.uri`: the `gizmosql://host:port?transport=tcp`
+  connection URI that GizmoSQL drivers (ADBC, JDBC, ...) understand.
+  `gizmosql://` is TLS by default, so `?transport=tcp` marks the plaintext
+  loopback endpoint this wrapper starts.
+
+### Changed
+- `Server.connect()` connects with `Server.uri`, and the README and docstrings
+  show `srv.uri`. `Server.url` is unchanged (`grpc+tcp://host:port`) for
+  generic Flight SQL clients such as `pyarrow.flight`.
+
 ## [1.41.0.post1] - 2026-10-06
 
 Ships the GizmoSQL v1.41.0 server. The plain `1.41.0` package was never

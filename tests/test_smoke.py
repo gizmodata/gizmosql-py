@@ -181,6 +181,15 @@ def test_url_property_uses_grpc_tcp(tmp_path) -> None:
     assert srv.url == "grpc+tcp://127.0.0.1:31337"
 
 
+def test_uri_property_uses_gizmosql_scheme_with_tcp_transport(tmp_path) -> None:
+    fake = tmp_path / "fake_server"
+    fake.write_text("#!/bin/sh\necho fake\n")
+    fake.chmod(0o755)
+    srv = gizmosql.Server(binary=fake, host="127.0.0.1", port=31337)
+    assert srv.uri == "gizmosql://127.0.0.1:31337?transport=tcp"
+    assert srv.config.uri == srv.uri
+
+
 # ---- network tier ----------------------------------------------------------
 
 
@@ -228,7 +237,7 @@ def test_real_server_query_via_adbc(tmp_path) -> None:
         password="tiger",
         database_filename=str(tmp_path / "adbc.duckdb"),
     ) as srv:
-        print(f"  server URL: {srv.url}  pid: {srv.pid}")
+        print(f"  server URI: {srv.uri}  pid: {srv.pid}")
         with srv.connect() as conn, conn.cursor() as cur:
             cur.execute("SELECT GIZMOSQL_VERSION(), GIZMOSQL_EDITION();")
             version, edition = cur.fetchone()

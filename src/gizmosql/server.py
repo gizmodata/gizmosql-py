@@ -6,8 +6,9 @@ Typical use::
     import gizmosql
 
     with gizmosql.Server(password="tiger") as srv:
-        print(srv.url)
-        # Hand srv.url to anything that speaks Flight SQL.
+        print(srv.uri)  # gizmosql://127.0.0.1:<port>?transport=tcp
+        # Hand srv.uri to a GizmoSQL driver (ADBC, JDBC, ...), or srv.url
+        # (grpc+tcp://...) to a generic Flight SQL client such as pyarrow.flight.
 
 Optional ADBC client (``pip install 'gizmosql[adbc]'``)::
 
@@ -62,9 +63,18 @@ class ServerConfig:
     binary: Path
 
     @property
+    def uri(self) -> str:
+        """GizmoSQL connection URI (``gizmosql://host:port?transport=tcp``) — the
+        preferred form for GizmoSQL drivers. ``gizmosql://`` means TLS by default,
+        so ``?transport=tcp`` marks this server's plaintext endpoint."""
+        return f"gizmosql://{self.host}:{self.port}?transport=tcp"
+
+    @property
     def url(self) -> str:
-        """Flight SQL URL (``grpc+tcp://...``). For TLS endpoints, callers should
-        construct the URL themselves — this convenience always returns plaintext."""
+        """Raw Flight SQL URL (``grpc+tcp://...``) for generic Flight SQL clients
+        (e.g. ``pyarrow.flight``) that don't understand ``gizmosql://``. For TLS
+        endpoints, callers should construct the URL themselves — this
+        convenience always returns plaintext."""
         return f"grpc+tcp://{self.host}:{self.port}"
 
 
@@ -199,8 +209,13 @@ class Server:
     # ---- public API --------------------------------------------------------
 
     @property
+    def uri(self) -> str:
+        """``gizmosql://host:port?transport=tcp`` for GizmoSQL drivers (ADBC, JDBC, ...)."""
+        return self.config.uri
+
+    @property
     def url(self) -> str:
-        """``grpc+tcp://host:port`` for connecting Flight SQL clients."""
+        """``grpc+tcp://host:port`` for generic Flight SQL clients (e.g. ``pyarrow.flight``)."""
         return self.config.url
 
     @property
@@ -311,7 +326,7 @@ class Server:
             ) from e
 
         return gizmosql_dbapi.connect(
-            uri=self.url,
+            uri=self.uri,
             db_kwargs={
                 "username": self.config.username,
                 "password": self.config.password,
