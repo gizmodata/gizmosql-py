@@ -48,10 +48,16 @@ the cached copy.
 import gizmosql
 
 with gizmosql.Server(password="tiger") as srv:
-    print(srv.url)            # grpc+tcp://127.0.0.1:42173
+    print(srv.uri)            # gizmosql://127.0.0.1:42173?transport=tcp
     print(srv.username, srv.password)
-    # ... point any Flight SQL client at srv.url ...
+    # ... point any GizmoSQL driver (ADBC, JDBC, ...) at srv.uri ...
 ```
+
+`srv.uri` is the `gizmosql://` connection URI that GizmoSQL drivers
+understand (`gizmosql://` is TLS by default; `?transport=tcp` marks the
+plaintext loopback endpoint this wrapper starts). For a generic Flight SQL
+client that only knows the gRPC schemes (e.g. `pyarrow.flight`), use
+`srv.url` instead: `grpc+tcp://127.0.0.1:42173`.
 
 The context manager:
 1. Downloads the matching server binary on first use.
@@ -138,8 +144,9 @@ def gizmosql_server(tmp_path_factory):
 ```python
 # test_my_app.py
 def test_my_jdbc_client_can_query(gizmosql_server):
-    # Hand srv.url to whatever client you're testing.
-    my_client.connect(gizmosql_server.url, "gizmosql", "testpw")
+    # Hand srv.uri (or srv.url, for a raw Flight SQL client) to whatever
+    # client you're testing.
+    my_client.connect(gizmosql_server.uri, "gizmosql", "testpw")
     ...
 ```
 
