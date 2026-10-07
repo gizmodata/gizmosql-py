@@ -93,6 +93,11 @@ gizmosql.Server(
 # Pin the LTS channel (DuckDB LTS release).
 gizmosql.Server(password="tiger", channel="lts")
 
+# Try the edge channel (GizmoSQL v1.41.0+): the next DuckDB major, pre-release
+# (today DuckDB 2.0). EXPERIMENTAL — not for production workloads; database
+# files it creates can't be opened by the stable or LTS channels.
+gizmosql.Server(password="tiger", channel="edge")
+
 # Pin a specific version (overrides the package's default version).
 gizmosql.Server(password="tiger", version="v1.25.1")
 
@@ -157,7 +162,8 @@ auto-picked, so parallel `pytest-xdist` workers don't collide.
   loopback Flight SQL endpoint. This is the right architecture for the
   intended use cases — see *Why?* above.
 - Pre-built binaries exist for: macOS arm64, Linux amd64, Linux arm64,
-  Windows amd64, Windows arm64. Other platforms aren't supported.
+  Windows amd64, Windows arm64. Other platforms aren't supported. The macOS
+  binaries of GizmoSQL v1.41.0+ require macOS 15 (Sequoia) or later.
 
 ## Links
 
@@ -167,6 +173,7 @@ auto-picked, so parallel `pytest-xdist` workers don't collide.
 - 🚀 [Quick Start guide](https://docs.gizmosql.com/#/quickstart)
 - 📚 [GizmoSQL documentation](https://docs.gizmosql.com)
 - 🦆 [LTS Channel guide](https://docs.gizmosql.com/#/lts_channel)
+- 🧪 [Edge Channel guide](https://docs.gizmosql.com/#/edge_channel) (experimental)
 - 🐛 [Issues / requests](https://github.com/gizmodata/gizmosql-py/issues)
 
 ## License

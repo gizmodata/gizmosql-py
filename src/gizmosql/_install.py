@@ -5,8 +5,8 @@ The matching release zip is fetched from the public GitHub Releases
 of ``gizmodata/gizmosql`` (or whatever ``GIZMOSQL_RELEASE_REPO`` points
 at) and unpacked into a per-version cache directory:
 
-    ~/.cache/gizmosql/<version>/[<channel>/]gizmosql_server[_lts]
-    ~/.cache/gizmosql/<version>/[<channel>/]gizmosql_client[_lts]
+    ~/.cache/gizmosql/<version>/<channel>/gizmosql_server[_lts|_edge]
+    ~/.cache/gizmosql/<version>/<channel>/gizmosql_client[_lts|_edge]
 
 Override the cache root with ``GIZMOSQL_CACHE_DIR`` and the released
 artifact source with ``GIZMOSQL_RELEASE_BASE_URL`` (for testing against
@@ -34,6 +34,11 @@ CACHE_ENV = "GIZMOSQL_CACHE_DIR"
 BASE_URL_ENV = "GIZMOSQL_RELEASE_BASE_URL"
 
 DEFAULT_REPO = "gizmodata/gizmosql"
+
+
+# Release channels GizmoSQL publishes. "edge" (v1.41.0+) is EXPERIMENTAL —
+# a DuckDB pre-release, not for production workloads.
+CHANNELS = ("stable", "lts", "edge")
 
 
 class InstallError(RuntimeError):
@@ -96,14 +101,18 @@ def _detect_os_arch() -> tuple[str, str]:
     return os_name, arch
 
 
+def _channel_suffix(channel: str) -> str:
+    """'' for stable, '_lts' / '_edge' otherwise — the release naming convention."""
+    return "" if channel == "stable" else f"_{channel}"
+
+
 def _artifact_name(os_name: str, arch: str, channel: str) -> str:
-    suffix = "_lts" if channel == "lts" else ""
-    return f"gizmosql_cli_{os_name}_{arch}{suffix}.zip"
+    return f"gizmosql_cli_{os_name}_{arch}{_channel_suffix(channel=channel)}.zip"
 
 
 def _binary_names(os_name: str, channel: str) -> tuple[str, str]:
     """Return (server_basename, client_basename) for the channel + OS."""
-    suffix = "_lts" if channel == "lts" else ""
+    suffix = _channel_suffix(channel=channel)
     ext = ".exe" if os_name == "windows" else ""
     return (f"gizmosql_server{suffix}{ext}", f"gizmosql_client{suffix}{ext}")
 
@@ -173,14 +182,14 @@ def ensure_binary(
     progress: bool = True,
 ) -> Path:
     """
-    Make sure ``gizmosql_server[_lts]`` for ``(version, channel)`` exists in
+    Make sure ``gizmosql_server[_lts|_edge]`` for ``(version, channel)`` exists in
     the local cache, downloading + extracting the release zip if needed.
 
     Returns the absolute path to the server executable (it's already +x and
     on Windows it has the ``.exe`` suffix).
     """
-    if channel not in ("stable", "lts"):
-        raise InstallError(f"channel must be 'stable' or 'lts' (got {channel!r})")
+    if channel not in CHANNELS:
+        raise InstallError(f"channel must be 'stable', 'lts' or 'edge' (got {channel!r})")
 
     os_name, arch = _detect_os_arch()
     server_name, _client_name = _binary_names(os_name, channel)
